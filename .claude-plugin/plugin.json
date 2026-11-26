@@ -1,0 +1,29 @@
+{
+  "name": "claude-intercom",
+  "description": "Make a Claude Code session an addressable peer on the pi-intercom bus.",
+  "version": "0.0.0",
+  "author": {
+    "name": "Nicolas Marchildon",
+    "url": "https://github.com/elecnix"
+  },
+  "homepage": "https://github.com/elecnix/claude-intercom",
+  "repository": "https://github.com/elecnix/claude-intercom",
+  "license": "MIT",
+  "keywords": [
+    "claude-code",
+    "channel",
+    "intercom",
+    "coding-agents"
+  ],
+  "mcpServers": {
+    "claude-intercom": {
+      "command": "${CLAUDE_PLUGIN_ROOT}/bin/claude-intercom-mcp.js"
+    }
+  },
+  "channels": [
+    {
+      "server": "claude-intercom",
+      "displayName": "Intercom"
+    }
+  ]
+}
