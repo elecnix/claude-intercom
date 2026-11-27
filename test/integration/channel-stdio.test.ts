@@ -52,13 +52,15 @@ test("the channel declares claude/channel, registers, and answers intercom_statu
       sessionId: string | null;
       mailbox: string;
       label: string;
+      outbox: { entries: number; unread: number; undelivered: number };
       upstream: { package: string; version: string };
     };
-    assert.equal(report.phase, "P1");
+    assert.equal(report.phase, "P2");
     assert.equal(report.registered, true);
     assert.equal(report.mailbox, pinnedSessionId(project));
     assert.equal(report.sessionId, pinnedSessionId(project));
     assert.equal(report.label, labelFor(project));
+    assert.deepEqual(report.outbox, { entries: 0, unread: 0, undelivered: 0 }, "a fresh session owes nothing");
     assert.equal(report.upstream.package, PI_INTERCOM_CONTRACT.package);
     assert.equal(report.upstream.version, PI_INTERCOM_CONTRACT.version);
   } finally {

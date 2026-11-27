@@ -17,6 +17,8 @@ npm test
 - **Bump the pin with the tests.** Changing `PI_INTERCOM_CONTRACT.version` without re-running the contract test moves a broken assumption into a running session.
 - **The broker's `queued` is not success.** A message waiting in the broker mailbox is delivered to nobody yet. A tool result must say so.
 - **Write the outbox before the push.** The broker forgets a message the moment it writes it to the socket; a push that never reaches the transcript is lost unless it was already on disk.
+- **`readAt` is the only delivery.** `deliveredAt` means a notification reached the transport. Claude Code can accept one and never show it, so anything that treats `deliveredAt` as proof will resend nothing and lose the message.
+- **A queued command is not a delivery.** The transcript scan ignores `queue-operation` lines and ids quoted in tool results; both look like receipts and are not.
 - **The label is not the identity.** A session's mailbox is its id. Presence names follow renames and are never used to route.
 - **Never mint a new id on reconnect.** The broker keeps a queue against the old id; a fresh one strands it. The label is republished instead, because a rename made while disconnected has to survive the gap.
 - **One retry at a time.** A duplicate close event must not arm a second timer.
