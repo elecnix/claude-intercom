@@ -18,11 +18,13 @@ npm test
 - **The broker's `queued` is not success.** A message waiting in the broker mailbox is delivered to nobody yet. A tool result must say so.
 - **Write the outbox before the push.** The broker forgets a message the moment it writes it to the socket; a push that never reaches the transcript is lost unless it was already on disk.
 - **The label is not the identity.** A session's mailbox is its id. Presence names follow renames and are never used to route.
+- **Never mint a new id on reconnect.** The broker keeps a queue against the old id; a fresh one strands it. The label is republished instead, because a rename made while disconnected has to survive the gap.
+- **One retry at a time.** A duplicate close event must not arm a second timer.
 - **Exit with stdin.** A channel server that outlives its session shows the session as listening when it is gone.
 
 ## Phases
 
-P0 skeleton and upstream contract, P1 identity and registration, P2 durable outbox and transcript receipt, P3 the MCP tool surface, P4 the channel push, P5 the test tiers, P6 docs and a doctor command. Each phase is reviewable alone.
+P0 skeleton and upstream contract, P1 identity and registration, P2 durable outbox and transcript receipt, P3 the MCP tool surface, P4 the channel push, P5 the test tiers, P6 docs and a doctor command. Each phase is reviewable alone; P0 is merged-ready on its own pull request and P1 stacks on it.
 
 ## Test tiers
 
