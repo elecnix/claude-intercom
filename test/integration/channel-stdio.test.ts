@@ -15,11 +15,12 @@ import { fileURLToPath } from "node:url";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
 import { PI_INTERCOM_CONTRACT } from "../../src/intercom/adapter.ts";
+import { labelFor, pinnedSessionId } from "../../src/intercom/identity.ts";
 
 const root = fileURLToPath(new URL("../..", import.meta.url));
 const entry = path.join(root, "bin/claude-intercom-mcp.js");
 
-test("the channel declares claude/channel and answers intercom_status", async () => {
+test("the channel declares claude/channel, registers, and answers intercom_status", async () => {
   const scratch = mkdtempSync(path.join(os.tmpdir(), "claude-intercom-channel-"));
   const client = new Client({ name: "claude-code", version: "0.0.0" }, { capabilities: {} });
   try {
@@ -44,13 +45,20 @@ test("the channel declares claude/channel and answers intercom_status", async ()
 
     const status = await client.callTool({ name: "intercom_status", arguments: {} });
     const content = status.content as { type: string; text: string }[];
+    const project = path.join(scratch, "project");
     const report = JSON.parse(content[0]!.text) as {
       phase: string;
       registered: boolean;
+      sessionId: string | null;
+      mailbox: string;
+      label: string;
       upstream: { package: string; version: string };
     };
-    assert.equal(report.phase, "P0");
-    assert.equal(report.registered, false);
+    assert.equal(report.phase, "P1");
+    assert.equal(report.registered, true);
+    assert.equal(report.mailbox, pinnedSessionId(project));
+    assert.equal(report.sessionId, pinnedSessionId(project));
+    assert.equal(report.label, labelFor(project));
     assert.equal(report.upstream.package, PI_INTERCOM_CONTRACT.package);
     assert.equal(report.upstream.version, PI_INTERCOM_CONTRACT.version);
   } finally {

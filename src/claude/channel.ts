@@ -1,41 +1,61 @@
 /**
- * The Claude Code channel, P0.
+ * The Claude Code channel.
  *
- * At this phase the server proves the two things that cannot be faked later: it
- * speaks MCP over stdio with the `claude/channel` capability declared, and it
- * starts at all when launched the way Claude Code launches it. Registration,
- * the outbox and the push path arrive in later phases; `intercom_status` is the
- * only tool, and it says so rather than pretending otherwise.
+ * At P1 the server registers on the bus under an id chosen from the repository
+ * directory, publishes a readable label, and reports both through
+ * `intercom_status`. Messages are received but not yet handled: the durable
+ * outbox and the channel push arrive in P2 and P4, so a message sent to this
+ * session today lands on a socket that logs it and nothing more.
  *
  * stdout carries the MCP protocol, so every log line goes to stderr.
  */
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { CallToolRequestSchema, ListToolsRequestSchema } from "@modelcontextprotocol/sdk/types.js";
-import { PI_INTERCOM_CONTRACT } from "../intercom/adapter.ts";
+import { PI_INTERCOM_CONTRACT, createChannelBus } from "../intercom/adapter.ts";
+import { labelFor, pinnedSessionId } from "../intercom/identity.ts";
+import { startSession, type RunningSession } from "../intercom/session.ts";
 
 const log = (...args: unknown[]): void => console.error("[claude-intercom]", ...args);
 
 const STATUS_TOOL = {
   name: "intercom_status",
-  description: "Report what this channel is connected to. P0 reports the pinned upstream contract only.",
+  description: "Report this session's identity on the pi-intercom bus and what the channel is connected to.",
   inputSchema: { type: "object" as const, properties: {}, additionalProperties: false },
 };
 
-function statusReport(): string {
+function statusReport(session: RunningSession, cwd: string): string {
+  const state = session.state();
   return JSON.stringify({
-    phase: "P0",
-    registered: false,
+    phase: "P1",
+    registered: state.status === "registered",
+    sessionId: session.sessionId(),
+    mailbox: pinnedSessionId(cwd),
+    label: state.status === "registered" ? state.label : labelFor(cwd),
+    state,
     upstream: {
       package: PI_INTERCOM_CONTRACT.package,
       version: PI_INTERCOM_CONTRACT.version,
       protocol: PI_INTERCOM_CONTRACT.protocol,
     },
-    note: "Registration, presence labels and the durable outbox arrive in P1 and P2.",
+    note: "Incoming messages are received but not delivered to the model until P2 and P4.",
   }, null, 2);
 }
 
 export async function main(): Promise<void> {
+  const cwd = process.env["CLAUDE_PROJECT_DIR"]?.trim() || process.cwd();
+  const label = process.env["CLAUDE_INTERCOM_LABEL"]?.trim() || labelFor(cwd);
+
+  const bus = createChannelBus();
+  const session = await startSession(bus, {
+    cwd,
+    label,
+    onStateChange: (state) => {
+      if (state.status === "registered") log(`registered as ${state.sessionId} (${state.label})`);
+      else if (state.status === "disconnected") log(`disconnected: ${state.reason}; retrying in ${state.retryInMs} ms`);
+    },
+  });
+
   const server = new Server(
     { name: "claude-intercom", version: "0.0.0" },
     {
@@ -43,7 +63,7 @@ export async function main(): Promise<void> {
       instructions: [
         "This server carries intercom traffic for this session: messages from other coding agents,",
         "and the replies to questions this session asked.",
-        "At P0 it only reports status.",
+        "At P1 it reports identity and connection state; delivery to the model arrives with the durable outbox.",
       ].join(" "),
     },
   );
@@ -54,12 +74,15 @@ export async function main(): Promise<void> {
     if (request.params.name !== STATUS_TOOL.name) {
       return { content: [{ type: "text" as const, text: `Unknown tool: ${request.params.name}` }], isError: true };
     }
-    return { content: [{ type: "text" as const, text: statusReport() }] };
+    return { content: [{ type: "text" as const, text: statusReport(session, cwd) }] };
   });
 
   // Exit with the session: a leftover server would show this session as listening.
+  let quitting = false;
   const quit = (): void => {
-    process.exit(0);
+    if (quitting) return;
+    quitting = true;
+    void session.stop().finally(() => process.exit(0));
   };
   process.stdin.on("end", quit);
   process.stdin.on("close", quit);
@@ -68,5 +91,5 @@ export async function main(): Promise<void> {
   server.onclose = quit;
 
   await server.connect(new StdioServerTransport());
-  log("channel ready, P0 status only");
+  log("channel ready, P1 identity");
 }

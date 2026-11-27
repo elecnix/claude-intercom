@@ -14,9 +14,39 @@
  * `node_modules` (ERR_UNSUPPORTED_NODE_MODULES_TYPE_STRIPPING). pi-intercom's
  * own CLI registers tsx for the same reason.
  */
-import { IntercomClient } from "pi-intercom/broker/client.ts";
+import { IntercomClient, IntercomSessionHeldError } from "pi-intercom/broker/client.ts";
 import type { SendResult } from "pi-intercom/broker/client.ts";
+import { createRequire } from "node:module";
+import { loadConfig } from "pi-intercom/config.ts";
 import type { Message, SessionInfo, SessionRegistration } from "pi-intercom/types.ts";
+
+// Re-exported so no other file has to name the upstream package.
+export type { Message, SessionInfo, SessionRegistration } from "pi-intercom/types.ts";
+
+/** A live process in the same repository already holds this mailbox. */
+export function isSessionHeldError(error: unknown): error is IntercomSessionHeldError {
+  return error instanceof IntercomSessionHeldError
+    || (typeof error === "object" && error !== null && (error as { code?: unknown }).code === "E_SESSION_HELD");
+}
+
+/**
+ * Start the bus if nothing is listening.
+ *
+ * The broker auto-spawns from a Pi session, so a machine that runs only Claude
+ * Code has no broker and no way to be messaged. This makes the channel able to
+ * bring the bus up on its own, using the same launch configuration the Pi
+ * extension uses.
+ */
+export async function ensureBroker(): Promise<void> {
+  const config = loadConfig();
+  // Loaded through require rather than a static import: upstream type-checks
+  // spawn.ts under a looser tsconfig than this repository's, and a borrowed
+  // convenience should not lower the strictness of our own sources.
+  const { spawnBrokerIfNeeded } = createRequire(import.meta.url)("pi-intercom/broker/spawn.ts") as {
+    spawnBrokerIfNeeded: (brokerCommand: string, brokerArgs: string[]) => Promise<void>;
+  };
+  await spawnBrokerIfNeeded(config.brokerCommand, config.brokerArgs);
+}
 
 /** The upstream version this adapter was written against. Bump it with the tests. */
 export const PI_INTERCOM_CONTRACT = {

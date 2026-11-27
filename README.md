@@ -4,7 +4,7 @@ A Claude Code plugin whose MCP channel is itself a peer on the [pi-intercom](htt
 
 ## Status
 
-Phase P0: the package skeleton, the plugin manifest, the MCP entry point and the upstream adapter with its contract test. The channel declares the `claude/channel` capability and starts, and `intercom_status` reports the pinned upstream contract. Registration, presence labels, the durable outbox and the push path are the next phases, so a Claude session is not reachable on the bus yet.
+Phase P1: the channel registers on the bus under an id derived from the repository directory, publishes a readable label, republishes both after a disconnect, and starts the broker itself when no Pi session is running. `intercom_status` reports the id, the label and the connection state. Messages are received but not yet handed to the model: the durable outbox and the channel push are P2 and P4, so a message sent to this session today reaches a socket that logs it and nothing more.
 
 ## Design in one page
 
@@ -25,7 +25,16 @@ The consequence that shapes the code: the broker counts a message as delivered o
 
 ## Identity
 
-A session registers under an id chosen per repository and publishes its readable name as a presence label, so a rename never moves the mailbox. The id survives a restart; the label follows `/name`.
+A session registers under an id chosen per repository and publishes its readable name as a presence label, so a rename never moves the mailbox. The id survives a restart; the label follows a rename.
+
+| | |
+| --- | --- |
+| id | `claude-<8 hex of sha256(realpath(cwd))>`, so a symlink or a trailing slash names the same mailbox |
+| label | `claude@<directory name>`, overridden by `CLAUDE_INTERCOM_LABEL` |
+| second session, same repository | the broker refuses an id held by a live process, so the second session takes `-2` and a mailbox of its own |
+| disconnect | the same id is reclaimed, the label is republished, retries back off 1 s, 2 s, 4 s to a 30 s cap |
+
+The broker is started by the channel when nothing is listening, so a machine that runs only Claude Code still has a bus.
 
 ## The upstream seam
 
@@ -33,7 +42,10 @@ A session registers under an id chosen per repository and publishes its readable
 
 ## Install
 
-Not installable yet: P0 has nothing to deliver until registration and the push path exist.
+Installing gets a session registered on the bus and listed by its peers, but nothing
+reaches the model yet: messages are received and dropped until the durable outbox and
+the channel push land in P2 and P4. There is no entry in the `elecnix-plugins`
+marketplace yet, so install from this repository's own manifest as below.
 
 ```text
 /plugin marketplace add elecnix/claude-intercom
