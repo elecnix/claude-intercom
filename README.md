@@ -48,6 +48,8 @@ claude --dangerously-load-development-channels plugin:claude-intercom@claude-int
 
 ## Development
 
+Node 24 LTS or newer: the adapter loads TypeScript from `node_modules` through tsx, and Node 24 is the oldest line this repository tests.
+
 ```sh
 npm ci
 npm test
