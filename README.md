@@ -42,7 +42,10 @@ The broker is started by the channel when nothing is listening, so a machine tha
 
 ## Install
 
-Not installable yet: P0 has nothing to deliver until registration and the push path exist.
+Installing gets a session registered on the bus and listed by its peers, but nothing
+reaches the model yet: messages are received and dropped until the durable outbox and
+the channel push land in P2 and P4. There is no entry in the `elecnix-plugins`
+marketplace yet, so install from this repository's own manifest as below.
 
 ```text
 /plugin marketplace add elecnix/claude-intercom
