@@ -1,0 +1,15 @@
+{
+  "name": "claude-intercom",
+  "owner": {
+    "name": "Nicolas Marchildon",
+    "url": "https://github.com/elecnix"
+  },
+  "plugins": [
+    {
+      "name": "claude-intercom",
+      "source": "./",
+      "description": "Make a Claude Code session an addressable peer on the pi-intercom bus.",
+      "version": "0.0.0"
+    }
+  ]
+}
